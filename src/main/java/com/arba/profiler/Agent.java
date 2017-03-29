@@ -7,7 +7,19 @@ import org.apache.bcel.Repository;
 import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.classfile.Method;
-import org.apache.bcel.generic.*;
+import org.apache.bcel.generic.ArrayType;
+import org.apache.bcel.generic.ClassGen;
+import org.apache.bcel.generic.ConstantPoolGen;
+import org.apache.bcel.generic.GETSTATIC;
+import org.apache.bcel.generic.INVOKEVIRTUAL;
+import org.apache.bcel.generic.Instruction;
+import org.apache.bcel.generic.InstructionHandle;
+import org.apache.bcel.generic.InstructionList;
+import org.apache.bcel.generic.LDC;
+import org.apache.bcel.generic.NEW;
+import org.apache.bcel.generic.MethodGen;
+import org.apache.bcel.generic.RETURN;
+import org.apache.bcel.generic.Type;
 
 import static org.apache.bcel.Constants.*;
 
@@ -63,8 +75,30 @@ public class Agent
                     }
 //                    System.out.println("\n#FFFFF#\n"+code+"\n#DDDDD#\n");
                 }
+                if (i instanceof NEW)
+                {
+                    //                    System.out.println("\n#FFFFF#\n"+code+"\n#DDDDD#\n");
+                    try
+                    {
+                        NEW value = (NEW) i;
+                        //                        System.out.println("Found LDC instruction");
+                        //                        System.out.println(cg.getConstantPool());
+                        if(value.getType(cg.getConstantPool()).getSignature().equals("Lcom/arba/profiler/A;"));
+//                        il.insert(value, new LDC(cg.getConstantPool().addString("Hello World! Modified App")));
+//                        //                        System.out.println(cg.getConstantPool());
+//                        il.delete(value);
+//                        mg.setMaxLocals();
+//                        mg.setMaxStack();
+//                        mg.setInstructionList(il);
+//                        cg.replaceMethod(method, mg.getMethod());
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                    //                    System.out.println("\n#FFFFF#\n"+code+"\n#DDDDD#\n");
+                }
             }
-            cg.update();
             try
             {
                 cg.getJavaClass().dump("com/arba/profiler/App.class");
