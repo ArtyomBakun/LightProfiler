@@ -134,7 +134,7 @@ public class Agent
         // print time required for method call
         ilist.append(ifact.createFieldAccess("java.lang.System", "out", 
                 new ObjectType("java.io.PrintStream"), GETSTATIC));
-        ilist.append(InstructionConstants.DUP);
+//        ilist.append(InstructionConstants.DUP);
         ilist.append(InstructionConstants.DUP);
         String text = "Call to method " + methgen.getName() + " took ";
         ilist.append(new PUSH(pgen, text));
@@ -157,7 +157,6 @@ public class Agent
         }
         ilist.append(InstructionFactory.createReturn(result));
 
-        System.out.println(wrapgen.getMethod().getName());
         System.out.println(wrapgen.getMethod().getCode());
 
         // finalize the constructed method
