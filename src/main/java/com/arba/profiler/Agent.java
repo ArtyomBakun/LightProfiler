@@ -16,25 +16,29 @@ public class Agent
 {
     public static void premain(String agentArgs, Instrumentation instrumentation)
     {
-//        createSyntheticClass();
-        modifyAppClass();
+        //        createSyntheticClass();
+//        modifyAppClass();
     }
-    
-    private static void modifyAppClass(){
+
+    private static void modifyAppClass()
+    {
         try
         {
             JavaClass appclass = Repository.lookupClass("com.arba.profiler.App");
-//            modifyHelloWorld(appclass);
-            wrapMethod(appclass, "buildString");
-//            printClass(appclass);
+            //            modifyHelloWorld(appclass);
+            //            wrapMethod(appclass, "buildString");
+            //            printClass(appclass);
+//            addCounter(appclass);
+            counterAdaptClass(appclass);
         }
-        catch (ClassNotFoundException | IOException e)
+        catch (/*TargetLostException | */ClassNotFoundException | IOException e)
         {
             e.printStackTrace();
         }
     }
 
-    public static void printClass(JavaClass appclass) {
+    public static void printClass(JavaClass appclass)
+    {
         for (Method method : appclass.getMethods())
         {
             System.out.println(method.getName() + "\n" + method.getCode() + "\n****************\n\n");
@@ -45,17 +49,19 @@ public class Agent
     {
         for (Method method : appclass.getMethods())
         {
-            if(method.getName().equals(methodName)){
+            if (method.getName().equals(methodName))
+            {
                 addWrapper(new ClassGen(appclass), method);
                 break;
             }
         }
     }
-    
+
     public static void modifyHelloWorld(JavaClass appclass) throws TargetLostException, IOException
     {
         ClassGen cg = new ClassGen(appclass);
-        for (Method method : appclass.getMethods()) {
+        for (Method method : appclass.getMethods())
+        {
             MethodGen mg = new MethodGen(method, cg.getClassName(), cg.getConstantPool());
             InstructionList il = mg.getInstructionList();
             for (InstructionHandle ih : il.getInstructionHandles())
@@ -71,14 +77,81 @@ public class Agent
                     mg.setInstructionList(il);
                     cg.replaceMethod(method, mg.getMethod());
                 }
+            }
+        }
+        appclass.dump("com/arba/profiler/App.class");
+    }
+
+    public static void addCounter(JavaClass appclass) throws TargetLostException, IOException
+    {
+        ClassGen cg = new ClassGen(appclass);
+        for (Method method : appclass.getMethods())
+        {
+            MethodGen mg = new MethodGen(method, cg.getClassName(), cg.getConstantPool());
+            InstructionList il = mg.getInstructionList();
+            for (InstructionHandle ih : il.getInstructionHandles())
+            {
+                Instruction i = ih.getInstruction();
                 if (i instanceof NEW)
                 {
                     NEW value = (NEW) i;
-                    if(value.getType(cg.getConstantPool()).getSignature().equals("Lcom/arba/profiler/A;"));
+                    if (value.getType(cg.getConstantPool()).getSignature().equals("Lcom/arba/profiler/A;"))
+                    {
+
+                    }
                 }
             }
         }
         appclass.dump("com/arba/profiler/App.class");
+    }
+
+    static void counterAdaptClass(final JavaClass jc) throws IOException
+    { 
+        final String name = "com.arba.profiler.App";
+        ClassGen cg = new ClassGen(jc);
+        ConstantPoolGen cp = cg.getConstantPool();
+        if (!cg.isInterface())
+        {
+            FieldGen fg = new FieldGen(ACC_PUBLIC,
+                    Type.getType("I"),
+                    "_counter",
+                    cp);
+            cg.addField(fg.getField());
+        }
+        Method[] ms = cg.getMethods();
+        for (int j = 0; j < ms.length; ++j)
+        {
+            MethodGen mg = new MethodGen(ms[j], cg.getClassName(), cp);
+            if (!mg.getName().equals("<init>") && !mg.isStatic()
+                    && !mg.isAbstract() && !mg.isNative())
+            {
+                if (mg.getInstructionList() != null)
+                {
+                    InstructionList il = new InstructionList();
+                    il.append(new ALOAD(0));
+                    il.append(new DUP());
+                    il.append(new GETFIELD(cp.addFieldref(name, "_counter", "I")));
+                    il.append(new ICONST(1));
+                    il.append(new IADD());
+                    il.append(new PUTFIELD(cp.addFieldref(name, "_counter", "I")));
+                    mg.getInstructionList().insert(il);
+                    mg.setMaxStack(Math.max(mg.getMaxStack(), 2));
+                    boolean lv = ms[j].getLocalVariableTable() == null;
+                    boolean ln = ms[j].getLineNumberTable() == null;
+                    if (lv)
+                    {
+                        mg.removeLocalVariables();
+                    }
+                    if (ln)
+                    {
+                        mg.removeLineNumbers();
+                    }
+                    cg.replaceMethod(ms[j], mg.getMethod());
+                }
+            }
+        }
+        cg.getJavaClass().dump("com/arba/profiler/App.class");
+//        return cg.getJavaClass().getBytes();
     }
 
     private static void addWrapper(ClassGen cgen, Method method) throws IOException
@@ -102,24 +175,28 @@ public class Agent
         // compute the size of the calling parameters
         Type[] types = methgen.getArgumentTypes();
         int slot = methgen.isStatic() ? 0 : 1;
-        for (int i = 0; i < types.length; i++) {
+        for (int i = 0; i < types.length; i++)
+        {
             slot += types[i].getSize();
         }
 
         // save time prior to invocation
-        ilist.append(ifact.createInvoke("java.lang.System", "currentTimeMillis", Type.LONG, Type.NO_ARGS, INVOKESTATIC));
+        ilist.append(
+                ifact.createInvoke("java.lang.System", "currentTimeMillis", Type.LONG, Type.NO_ARGS, INVOKESTATIC));
         ilist.append(InstructionFactory.createStore(Type.LONG, slot));
 
         // call the wrapped method
         int offset = 0;
         short invoke = INVOKESTATIC;
-        if (!methgen.isStatic()) {
+        if (!methgen.isStatic())
+        {
             ilist.append(InstructionFactory.createLoad(Type.OBJECT, 0));
             offset = 1;
             invoke = INVOKEVIRTUAL;
         }
         System.out.println("invoke=" + invoke);
-        for (int i = 0; i < types.length; i++) {
+        for (int i = 0; i < types.length; i++)
+        {
             Type type = types[i];
             ilist.append(InstructionFactory.createLoad(type, offset));
             offset += type.getSize();
@@ -127,33 +204,35 @@ public class Agent
         ilist.append(ifact.createInvoke(cname, iname, result, types, invoke));
 
         // store result for return later
-        if (result != Type.VOID) {
-            ilist.append(InstructionFactory.createStore(result, slot+2));
+        if (result != Type.VOID)
+        {
+            ilist.append(InstructionFactory.createStore(result, slot + 2));
         }
 
         // print time required for method call
-        ilist.append(ifact.createFieldAccess("java.lang.System", "out", 
+        ilist.append(ifact.createFieldAccess("java.lang.System", "out",
                 new ObjectType("java.io.PrintStream"), GETSTATIC));
-//        ilist.append(InstructionConstants.DUP);
+        ilist.append(InstructionConstants.DUP);
         ilist.append(InstructionConstants.DUP);
         String text = "Call to method " + methgen.getName() + " took ";
         ilist.append(new PUSH(pgen, text));
-        ilist.append(ifact.createInvoke("java.io.PrintStream", "print", 
+        ilist.append(ifact.createInvoke("java.io.PrintStream", "print",
                 Type.VOID, new Type[] { Type.STRING }, INVOKEVIRTUAL));
-        ilist.append(ifact.createInvoke("java.lang.System", "currentTimeMillis", 
+        ilist.append(ifact.createInvoke("java.lang.System", "currentTimeMillis",
                 Type.LONG, Type.NO_ARGS, INVOKESTATIC));
         ilist.append(InstructionFactory.createLoad(Type.LONG, slot));
         ilist.append(InstructionConstants.LSUB);
-        ilist.append(ifact.createInvoke("java.io.PrintStream", "print", 
+        ilist.append(ifact.createInvoke("java.io.PrintStream", "print",
                 Type.VOID, new Type[] { Type.LONG }, INVOKEVIRTUAL));
         ilist.append(new PUSH(pgen, " ms."));
-        ilist.append(ifact.createInvoke("java.io.PrintStream", "println", 
+        ilist.append(ifact.createInvoke("java.io.PrintStream", "println",
                 Type.VOID, new Type[] { Type.STRING }, INVOKEVIRTUAL));
 
         // return result from wrapped method call
-        if (result != Type.VOID) {
+        if (result != Type.VOID)
+        {
             ilist.append(InstructionFactory.
-                    createLoad(result, slot+2));
+                    createLoad(result, slot + 2));
         }
         ilist.append(InstructionFactory.createReturn(result));
 
@@ -167,8 +246,9 @@ public class Agent
         ilist.dispose();
         cgen.getJavaClass().dump("com/arba/profiler/App.class");
     }
-    
-    private static void createSyntheticClass(){
+
+    private static void createSyntheticClass()
+    {
         System.out.println("Generating Class");
 
         final String fullClassname = "com.arba.profiler.SyntheticClass";
@@ -227,7 +307,7 @@ public class Agent
         try
         {
             //Write the class byte code into a file
-            javaClass.dump(fullClassname.replace(".", "/") +".class");
+            javaClass.dump(fullClassname.replace(".", "/") + ".class");
         }
         catch (IOException e)
         {

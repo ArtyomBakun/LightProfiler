@@ -1,6 +1,11 @@
 package com.arba.profiler;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 public class App {
+    
+//    public static AtomicLong aLookupCounter = new AtomicLong();
+//    public int _counter;
     
     public static void main( String[] args )
     {
@@ -9,6 +14,7 @@ public class App {
     }
 
     public String buildString(int length) {
+//        ++this._counter;
         String result = "";
         for (int i = 0; i < length; i++) {
             result += (char)(i%26 + 'a');
